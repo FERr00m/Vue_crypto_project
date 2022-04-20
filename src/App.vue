@@ -28,15 +28,16 @@
                 placeholder="Например DOGE"
               />
             </div>
+            {{ newTick }}
             <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
-            <span
-              v-for="(badge, idx) in badges"
-              :key="idx"
-              @click="addTicker(badge)"
-              class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
-            >
-              {{ badge }}
-            </span>
+<!--            <span-->
+<!--              v-for="(badge, idx) in badges"-->
+<!--              :key="idx"-->
+<!--              @click="addTicker(badge)"-->
+<!--              class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"-->
+<!--            >-->
+<!--              {{ badge }}-->
+<!--            </span>-->
             </div>
             <div
               v-show="hasTicker"
@@ -165,6 +166,7 @@
 </template>
 
 <script>
+import { debounce } from './helpers'
 
 export default {
   name: 'App',
@@ -177,17 +179,35 @@ export default {
       sel: '',
       graph: [],
       graphOpen: false,
-      badges: ['BTC', 'DOGE', 'BCH', 'ETH'],
+      badges: null,
       currentGraph: [],
-      isMounted: false
+      isMounted: false,
+      newTick: ''
     }
+  },
+  watch: {
+    ticker: debounce(function (newVal) {
+      this.newTick = newVal
+    }, 500)
   },
   mounted () {
     setTimeout(() => {
       this.isMounted = true
     }, 1000)
   },
+  created () {
+    this.getBadges()
+  },
   methods: {
+    async getBadges () {
+      const data = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
+        .then(res => res.json())
+      this.badges = data.Data
+      console.log(this.badges)
+    },
+    findCoin (value) {
+      console.log(value)
+    },
     addTicker (t) {
       if (!t) return
       if (this.tickers.find(tick => tick.name === t)) {
@@ -219,7 +239,6 @@ export default {
     },
     selectedTicker (ticker) {
       this.currentGraph = ticker.localGraph
-      console.log(this.currentGraph)
       this.tickers.forEach(t => {
         t.id === ticker.id ? t.selected = 'border-purple-800 border-solid border-4' : t.selected = ''
       })
@@ -230,6 +249,7 @@ export default {
     removeTicker (id) {
       clearInterval(this.tickers.find(t => t.id === id).interval)
       this.tickers = this.tickers.filter(t => t.id !== id)
+      this.graphOpen = false
     },
     normalizeGraph (tickerGraph) {
       const maxValue = Math.max(...tickerGraph)
