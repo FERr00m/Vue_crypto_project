@@ -28,16 +28,15 @@
                 placeholder="Например DOGE"
               />
             </div>
-            {{ newTick }}
             <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
-<!--            <span-->
-<!--              v-for="(badge, idx) in badges"-->
-<!--              :key="idx"-->
-<!--              @click="addTicker(badge)"-->
-<!--              class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"-->
-<!--            >-->
-<!--              {{ badge }}-->
-<!--            </span>-->
+            <span
+              v-for="(badge, idx) in findedBadges"
+              :key="idx"
+              @click="addTicker(badge.Symbol, badge.FullName)"
+              class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer"
+            >
+              {{ badge.Symbol }}
+            </span>
             </div>
             <div
               v-show="hasTicker"
@@ -89,6 +88,9 @@
           <div class="px-4 py-5 sm:p-6 text-center">
             <dt class="text-sm font-medium text-gray-500 truncate">
               {{ ticker.name.toUpperCase() }} - USD
+            </dt>
+            <dt class="text-sm font-medium text-gray-500 truncate">
+              {{ ticker.fullName }}
             </dt>
             <dd class="mt-1 text-3xl font-semibold text-gray-900">
               {{ ticker.price }}
@@ -180,14 +182,16 @@ export default {
       graph: [],
       graphOpen: false,
       badges: null,
+      findedBadges: [],
       currentGraph: [],
       isMounted: false,
-      newTick: ''
+      bounceTicker: ''
     }
   },
   watch: {
     ticker: debounce(function (newVal) {
-      this.newTick = newVal
+      this.bounceTicker = newVal
+      this.findCoin(newVal)
     }, 500)
   },
   mounted () {
@@ -206,9 +210,17 @@ export default {
       console.log(this.badges)
     },
     findCoin (value) {
-      console.log(value)
+      this.findedBadges = []
+      if (value.length > 1) {
+        for (const coin in this.badges) {
+          if (coin.includes(value.toUpperCase())) {
+            this.findedBadges.push(this.badges[`${coin}`])
+            if (this.findedBadges.length === 4) break
+          }
+        }
+      }
     },
-    addTicker (t) {
+    addTicker (t, fullName = '') {
       if (!t) return
       if (this.tickers.find(tick => tick.name === t)) {
         this.hasTicker = true
@@ -218,6 +230,7 @@ export default {
       const newTicker = {
         id: Date.now(),
         name: t,
+        fullName: fullName,
         price: '-',
         selected: '',
         interval: null,
