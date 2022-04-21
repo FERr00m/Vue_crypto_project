@@ -19,7 +19,7 @@
             >
             <div class="mt-1 relative rounded-md shadow-md">
               <input
-                @keydown.enter="addTicker(ticker.toUpperCase())"
+                @keydown.enter="addTicker(ticker.toUpperCase(), '', true)"
                 v-model.trim="ticker"
                 type="text"
                 name="wallet"
@@ -43,12 +43,6 @@
               class="text-sm text-red-600"
             >
               Такой тикер уже добавлен
-            </div>
-            <div
-              v-show="hasError"
-              class="text-sm text-red-600"
-            >
-              Такого тикера не существует
             </div>
           </div>
         </div>
@@ -74,13 +68,22 @@
         </button>
       </section>
 
+      <div>
+        <button>
+          back
+        </button>
+        <button>
+          forward
+        </button>
+        <input v-model:="filter">
+      </div>
       <hr class="w-full border-t border-gray-600 my-4" />
       <dl
         v-if="tickers.length"
         class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div
           @click="selectedTicker(ticker)"
-          v-for="ticker in tickers"
+          v-for="ticker in filteredTickers()"
           :key="ticker.id"
           :class="ticker.selected"
           class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
@@ -98,7 +101,7 @@
           </div>
           <div class="w-full border-t border-gray-200"></div>
           <button
-            @click.stop="removeTicker(ticker.id), hasError = false"
+            @click.stop="removeTicker(ticker.id)"
             class="flex items-center justify-center font-medium w-full bg-gray-100 px-4 py-4 sm:px-6 text-md text-gray-500 hover:text-gray-600 hover:bg-gray-200 hover:opacity-20 transition-all focus:outline-none"
           >
             <svg
@@ -177,8 +180,8 @@ export default {
       ticker: '',
       tickers: [],
       hasTicker: false,
-      hasError: false,
       sel: '',
+      filter: '',
       graph: [],
       graphOpen: false,
       badges: null,
@@ -201,6 +204,13 @@ export default {
   },
   created () {
     this.getBadges()
+    const data = localStorage.getItem('cryptoData')
+    if (data) {
+      this.tickers = JSON.parse(data)
+      this.tickers.forEach(ticker => {
+        ticker.interval = this.subscribeToUpdate(ticker)
+      })
+    }
   },
   methods: {
     async getBadges () {
@@ -208,6 +218,9 @@ export default {
         .then(res => res.json())
       this.badges = data.Data
       console.log(this.badges)
+    },
+    filteredTickers () {
+      this.tickers.filter(ticker => ticker.name === this.filter)
     },
     findCoin (value) {
       this.findedBadges = []
@@ -220,7 +233,19 @@ export default {
         }
       }
     },
-    addTicker (t, fullName = '') {
+    subscribeToUpdate (newTicker) {
+      return setInterval(async () => {
+        const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name.toUpperCase()}&tsyms=USD&api_key=7740b68ad837e23da26537bd8eb643770b0688aaa63c53f506e43900cce53fd3`).then(data => data.json())
+        if (res.Response === 'Error') {
+          this.tickers.find(tick => tick.name === newTicker.name).price = 'Нет данных'
+          clearInterval(this.tickers.find(t => t.id === newTicker.id).interval)
+        } else {
+          this.tickers.find(tick => tick.name === newTicker.name).price = res.USD > 1 ? res.USD.toFixed(2) : res.USD.toPrecision(2)
+          this.tickers.find(tick => tick.name === newTicker.name).localGraph.push(res.USD)
+        }
+      }, 3000)
+    },
+    addTicker (t, fullName = '', fromInput = false) {
       if (!t) return
       if (this.tickers.find(tick => tick.name === t)) {
         this.hasTicker = true
@@ -237,18 +262,12 @@ export default {
         localGraph: []
       }
       this.tickers.push(newTicker)
-      newTicker.interval = setInterval(async () => {
-        const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name.toUpperCase()}&tsyms=USD&api_key=7740b68ad837e23da26537bd8eb643770b0688aaa63c53f506e43900cce53fd3`).then(data => data.json())
-        if (res.Response === 'Error') {
-          this.hasError = true
-          this.tickers.find(tick => tick.name === newTicker.name).price = 'Нет данных'
-          clearInterval(this.tickers.find(t => t.id === newTicker.id).interval)
-        } else {
-          this.tickers.find(tick => tick.name === newTicker.name).price = res.USD > 1 ? res.USD.toFixed(2) : res.USD.toPrecision(2)
-          this.tickers.find(tick => tick.name === newTicker.name).localGraph.push(res.USD)
-        }
-      }, 3000)
-      this.ticker = ''
+
+      localStorage.setItem('cryptoData', JSON.stringify(this.tickers))
+
+      newTicker.interval = this.subscribeToUpdate(newTicker)
+      this.ticker = t
+      if (fromInput) this.ticker = ''
     },
     selectedTicker (ticker) {
       this.currentGraph = ticker.localGraph
@@ -263,6 +282,7 @@ export default {
       clearInterval(this.tickers.find(t => t.id === id).interval)
       this.tickers = this.tickers.filter(t => t.id !== id)
       this.graphOpen = false
+      localStorage.setItem('cryptoData', JSON.stringify(this.tickers))
     },
     normalizeGraph (tickerGraph) {
       const maxValue = Math.max(...tickerGraph)
