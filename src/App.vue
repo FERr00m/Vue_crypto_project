@@ -68,14 +68,28 @@
         </button>
       </section>
 
-      <div>
-        <button>
-          back
+      <div
+        v-if="tickers.length > 6"
+      >
+        <button
+          v-if="page > 1"
+          @click="page--"
+          class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          Назад
         </button>
-        <button>
-          forward
+        <button
+          v-if="hasNextPage"
+          @click="page++"
+          class="my-4 mx-2 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+        >
+          Вперёд
         </button>
-        <input v-model:="filter">
+        <div>Текущая страница {{ page }}</div>
+        <hr class="w-full border-t border-gray-600 my-4" />
+        <div>Фильтр
+          <input v-model="filtered">
+        </div>
       </div>
       <hr class="w-full border-t border-gray-600 my-4" />
       <dl
@@ -181,14 +195,16 @@ export default {
       tickers: [],
       hasTicker: false,
       sel: '',
-      filter: '',
+      filtered: '',
       graph: [],
       graphOpen: false,
       badges: null,
       findedBadges: [],
       currentGraph: [],
       isMounted: false,
-      bounceTicker: ''
+      bounceTicker: '',
+      page: 1,
+      hasNextPage: true
     }
   },
   watch: {
@@ -220,7 +236,12 @@ export default {
       console.log(this.badges)
     },
     filteredTickers () {
-      this.tickers.filter(ticker => ticker.name === this.filter)
+      const start = (this.page - 1) * 6
+      const end = this.page * 6
+
+      const filteredTickers = this.tickers.filter(ticker => ticker.name.includes(this.filtered.toUpperCase()))
+      this.hasNextPage = filteredTickers.length > end
+      return filteredTickers.slice(start, end)
     },
     findCoin (value) {
       this.findedBadges = []
@@ -266,7 +287,7 @@ export default {
       localStorage.setItem('cryptoData', JSON.stringify(this.tickers))
 
       newTicker.interval = this.subscribeToUpdate(newTicker)
-      this.ticker = t
+      this.filtered = ''
       if (fromInput) this.ticker = ''
     },
     selectedTicker (ticker) {
