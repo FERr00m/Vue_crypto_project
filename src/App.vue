@@ -211,7 +211,22 @@ export default {
     ticker: debounce(function (newVal) {
       this.bounceTicker = newVal
       this.findCoin(newVal)
-    }, 500)
+    }, 500),
+    filtered () {
+      this.page = 1
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filtered}&page=${this.page}`
+      )
+    },
+    page () {
+      window.history.pushState(
+        null,
+        document.title,
+        `${window.location.pathname}?filter=${this.filtered}&page=${this.page}`
+      )
+    }
   },
   mounted () {
     setTimeout(() => {
@@ -226,6 +241,17 @@ export default {
       this.tickers.forEach(ticker => {
         ticker.interval = this.subscribeToUpdate(ticker)
       })
+    }
+    const windowData = Object.fromEntries(
+      new URL(window.location).searchParams.entries()
+    )
+
+    if (windowData.filter) {
+      this.filtered = windowData.filter
+    }
+
+    if (windowData.page) {
+      this.page = windowData.page
     }
   },
   methods: {
