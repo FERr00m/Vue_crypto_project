@@ -1,5 +1,5 @@
 # crypto_project
-
+## Практический проект на Vue
 ## Project setup
 ```
 yarn install
